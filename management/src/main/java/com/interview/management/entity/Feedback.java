@@ -7,7 +7,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import com.interview.management.entity.enums.Recommendation;
 
 import java.time.LocalDateTime;
-
 /**
  * Feedback Entity
  * Stores interviewer's assessment after interview

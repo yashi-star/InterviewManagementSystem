@@ -134,7 +134,6 @@ public class Interview {
         
         statusHistory.add(history);
     }
-    
     /**
      * Helper method to add feedback
      */

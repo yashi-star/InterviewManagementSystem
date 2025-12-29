@@ -1,5 +1,4 @@
-package com.interview.management.entity;
-
+package com.interview.management.entity.enums;
 
 public enum CandidateStage {
     APPLIED("Application Received"),
@@ -19,3 +18,4 @@ public enum CandidateStage {
         return displayName;
     }
 }
+

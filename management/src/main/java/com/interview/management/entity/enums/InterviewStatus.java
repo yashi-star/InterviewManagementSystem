@@ -1,8 +1,5 @@
 package com.interview.management.entity.enums;
 
-public /**
- * Interview status lifecycle
- */
 public enum InterviewStatus {
     SCHEDULED("Scheduled"),
     IN_PROGRESS("In Progress"),
@@ -16,7 +13,11 @@ public enum InterviewStatus {
         this.displayName = displayName;
     }
     
+    /**
+     * @return
+     */
     public String getDisplayName() {
         return displayName;
     }
 } 
+

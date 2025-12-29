@@ -7,7 +7,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import com.interview.management.entity.enums.InterviewStatus;
 
 import java.time.LocalDateTime;
-
 /**
  * Interview Status History
  * Tracks every status change of an interview

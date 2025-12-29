@@ -1,11 +1,10 @@
 package com.interview.management.entity;
 
+import com.interview.management.entity.enums.CandidateStage;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import com.interview.management.entity.enums.CandidateStage;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
