@@ -1,0 +1,146 @@
+version: '3.8'
+
+# ========================================
+# INTERVIEW MANAGEMENT SYSTEM
+# Docker Compose Configuration
+# ========================================
+# This file sets up:
+# 1. PostgreSQL database
+# 2. Ollama AI service
+# 3. (Optional) Spring Boot app container
+#
+# To start: docker-compose up -d
+# To stop: docker-compose down
+# To view logs: docker-compose logs -f
+# ========================================
+
+services:
+  # ========================================
+  # POSTGRESQL DATABASE
+  # ========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ims-postgres
+    restart: unless-stopped
+    
+    environment:
+      # Database credentials (match with application.properties)
+      POSTGRES_DB: interview_mgmt_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      # Timezone
+      TZ: Asia/Kolkata
+    
+    ports:
+      # Host:Container mapping
+      # Access from your laptop: localhost:5432
+      - "5432:5432"
+    
+    volumes:
+      # Persist data even after container restart
+      # Data stored in named volume 'postgres_data'
+      - postgres_data:/var/lib/postgresql/data
+      
+      # Optional: Initialize database with schema
+      # Create a file: ./init-scripts/init.sql
+      # - ./init-scripts:/docker-entrypoint-initdb.d
+    
+    networks:
+      - ims-network
+    
+    healthcheck:
+      # Check if database is ready
+      test: ["CMD-SHELL", "pg_isready -U admin -d interview_mgmt_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========================================
+  # OLLAMA AI SERVICE
+  # ========================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ims-ollama
+    restart: unless-stopped
+    
+    ports:
+      # Ollama API port
+      # Access from your laptop: http://localhost:11434
+      - "11434:11434"
+    
+    volumes:
+      # Persist downloaded AI models
+      # Models can be large (4-7GB), so we store them permanently
+      - ollama_data:/root/.ollama
+    
+    networks:
+      - ims-network
+    
+    # Optional: Use GPU if available (uncomment if you have NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ========================================
+  # SPRING BOOT APPLICATION (Optional)
+  # ========================================
+  # Uncomment this section when you're ready to containerize your app
+  # For now, run your Spring Boot app from VS Code directly
+  
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: ims-app
+  #   restart: unless-stopped
+  #   
+  #   environment:
+  #     # Override application.properties for container environment
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/interview_mgmt_db
+  #     SPRING_DATASOURCE_USERNAME: admin
+  #     SPRING_DATASOURCE_PASSWORD: admin123
+  #     SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
+  #   
+  #   ports:
+  #     - "8080:8080"
+  #   
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     ollama:
+  #       condition: service_healthy
+  #   
+  #   networks:
+  #     - ims-network
+
+# ========================================
+# VOLUMES (Persistent Storage)
+# ========================================
+volumes:
+  # PostgreSQL data persistence
+  postgres_data:
+    driver: local
+  
+  # Ollama models persistence
+  # This can grow large (multiple models = 20GB+)
+  ollama_data:
+    driver: local
+
+# ========================================
+# NETWORKS
+# ========================================
+networks:
+  ims-network:
+    driver: bridge
+    # All services can communicate using service names
+    # e.g., app can connect to postgres using 'postgres:5432'
