@@ -167,6 +167,12 @@
             <artifactId>pdfbox</artifactId>
             <version>${pdfbox.version}</version>
         </dependency>
+
+        <dependency>
+    <groupId>org.apache.poi</groupId>
+    <artifactId>poi-ooxml</artifactId>
+    <version>5.2.5</version>
+</dependency>
         
         <!-- ========================================= -->
         <!-- OPTIONAL: DTO MAPPING (Uncomment if you want) -->

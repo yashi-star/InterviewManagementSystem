@@ -1,146 +1,190 @@
-version: '3.8'
-
-# ========================================
-# INTERVIEW MANAGEMENT SYSTEM
-# Docker Compose Configuration
-# ========================================
-# This file sets up:
-# 1. PostgreSQL database
-# 2. Ollama AI service
-# 3. (Optional) Spring Boot app container
-#
-# To start: docker-compose up -d
-# To stop: docker-compose down
-# To view logs: docker-compose logs -f
-# ========================================
-
+# ============================================
+# SERVICES
+# ============================================
 services:
-  # ========================================
-  # POSTGRESQL DATABASE
-  # ========================================
+  
+  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: ims-postgres
+    container_name: ims_postgres
     restart: unless-stopped
-    
     environment:
-      # Database credentials (match with application.properties)
-      POSTGRES_DB: interview_mgmt_db
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
-      # Timezone
-      TZ: Asia/Kolkata
-    
+      POSTGRES_DB: interview_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # Improve performance
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
     ports:
-      # Host:Container mapping
-      # Access from your laptop: localhost:5432
       - "5432:5432"
-    
     volumes:
-      # Persist data even after container restart
-      # Data stored in named volume 'postgres_data'
+      # Persist database data
       - postgres_data:/var/lib/postgresql/data
-      
-      # Optional: Initialize database with schema
-      # Create a file: ./init-scripts/init.sql
-      # - ./init-scripts:/docker-entrypoint-initdb.d
-    
+      # Optional: Initialize database with seed data
+      # - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - ims-network
-    
+      - ims_network
     healthcheck:
-      # Check if database is ready
-      test: ["CMD-SHELL", "pg_isready -U admin -d interview_mgmt_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d interview_db"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
-  # ========================================
-  # OLLAMA AI SERVICE
-  # ========================================
+  # Ollama AI Service
   ollama:
     image: ollama/ollama:latest
-    container_name: ims-ollama
+    container_name: ims_ollama
     restart: unless-stopped
-    
     ports:
-      # Ollama API port
-      # Access from your laptop: http://localhost:11434
       - "11434:11434"
-    
     volumes:
-      # Persist downloaded AI models
-      # Models can be large (4-7GB), so we store them permanently
+      # Persist downloaded models (important!)
       - ollama_data:/root/.ollama
-    
     networks:
-      - ims-network
-    
-    # Optional: Use GPU if available (uncomment if you have NVIDIA GPU)
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-    
+      - ims_network
+    # Pull llama2 model on first startup
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        # Start Ollama in background
+        /bin/ollama serve &
+        
+        # Wait for Ollama to be ready
+        echo "Waiting for Ollama to start..."
+        sleep 10
+        
+        # Check if llama2 is already downloaded
+        if ! ollama list | grep -q llama2; then
+          echo "Downloading llama2 model (this will take a few minutes)..."
+          ollama pull llama2
+          echo "llama2 model downloaded successfully!"
+        else
+          echo "llama2 model already exists"
+        fi
+        
+        # Keep container running
+        tail -f /dev/null
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 120s  # Give time to download model
 
-  # ========================================
-  # SPRING BOOT APPLICATION (Optional)
-  # ========================================
-  # Uncomment this section when you're ready to containerize your app
-  # For now, run your Spring Boot app from VS Code directly
-  
-  # app:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: ims-app
-  #   restart: unless-stopped
-  #   
-  #   environment:
-  #     # Override application.properties for container environment
-  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/interview_mgmt_db
-  #     SPRING_DATASOURCE_USERNAME: admin
-  #     SPRING_DATASOURCE_PASSWORD: admin123
-  #     SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
-  #   
-  #   ports:
-  #     - "8080:8080"
-  #   
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     ollama:
-  #       condition: service_healthy
-  #   
-  #   networks:
-  #     - ims-network
+  # Spring Boot Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ims_app
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    environment:
+      # Database connection
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/interview_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      
+      # Ollama connection
+      SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
+      SPRING_AI_OLLAMA_CHAT_OPTIONS_MODEL: llama2
+      
+      # File upload
+      FILE_UPLOAD_DIR: /app/resumes
+      
+      # JVM options
+      JAVA_OPTS: "-Xms512m -Xmx1024m"
+    volumes:
+      # Persist uploaded resumes
+      - resume_data:/app/resumes
+      # Optional: Mount application logs
+      - ./logs:/app/logs
+    networks:
+      - ims_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8087/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
-# ========================================
-# VOLUMES (Persistent Storage)
-# ========================================
+  # Optional: pgAdmin - Database Management UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ims_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - ims_network
+    depends_on:
+      - postgres
+    profiles:
+      - tools  # Only starts when specifically requested
+
+# ============================================
+# VOLUMES
+# ============================================
 volumes:
-  # PostgreSQL data persistence
   postgres_data:
     driver: local
-  
-  # Ollama models persistence
-  # This can grow large (multiple models = 20GB+)
   ollama_data:
     driver: local
+  resume_data:
+    driver: local
+  pgadmin_data:
+    driver: local
 
-# ========================================
+# ============================================
 # NETWORKS
-# ========================================
+# ============================================
 networks:
-  ims-network:
+  ims_network:
     driver: bridge
-    # All services can communicate using service names
-    # e.g., app can connect to postgres using 'postgres:5432'
+
+# ============================================
+# USAGE INSTRUCTIONS
+# ============================================
+#
+# Start all services:
+#   docker-compose up -d
+#
+# Start with pgAdmin:
+#   docker-compose --profile tools up -d
+#
+# View logs:
+#   docker-compose logs -f
+#   docker-compose logs -f app
+#
+# Stop all services:
+#   docker-compose down
+#
+# Stop and remove volumes (deletes all data):
+#   docker-compose down -v
+#
+# Rebuild app after code changes:
+#   docker-compose up -d --build app
+#
+# Check container status:
+#   docker-compose ps
+#
+# Access container shell:
+#   docker exec -it ims_app sh
+#   docker exec -it ims_postgres psql -U postgres -d interview_db
+#
+# View container logs:
+#   docker logs ims_app
+#   docker logs ims_postgres
+#   docker logs ims_ollama

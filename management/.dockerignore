@@ -1,0 +1,78 @@
+# ============================================
+# .dockerignore
+# ============================================
+# This file tells Docker which files to ignore
+# when building the image (similar to .gitignore)
+#
+# Purpose: Reduce build context size and speed up builds
+
+# Maven build output
+target/
+!target/*.jar
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.metadata
+
+# Operating System files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Log files
+logs/
+*.log
+
+# Test coverage
+.jacoco/
+coverage/
+
+# Temporary files
+tmp/
+temp/
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Docker files (don't copy Docker files into the image)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation
+README.md
+*.md
+docs/
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+
+# Environment files
+.env
+.env.local
+*.env
+
+# Node modules (if you have frontend)
+node_modules/
+npm-debug.log
+
+# Uploaded files (we'll mount these as volumes)
+resumes/
+uploads/
+
+# Application specific
+application-local.properties
+application-dev.properties
